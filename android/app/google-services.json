@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "809588601768",
+    "project_id": "cpp-user-side",
+    "storage_bucket": "cpp-user-side.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:809588601768:android:ab54120faacf1f50b7e39d",
+        "android_client_info": {
+          "package_name": "com.cpp.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxZnZTxC2tMXjpFE0jttlKqyhtrLp42GI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
