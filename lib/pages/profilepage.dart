@@ -255,6 +255,7 @@ Future<void> _pickImage() async {
 
 _loadExistingData() async {
   final uid = FirebaseAuth.instance.currentUser!.uid;
+  final semail = FirebaseAuth.instance.currentUser!.email;
   var doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
   
   if (doc.exists) {
@@ -265,7 +266,7 @@ _loadExistingData() async {
       studentName = data['student_name']?.toString() ?? "Not Provided";
       studentPhone = data['self_phone']?.toString() ?? "Not Provided";
       studentAddress = data['address']?.toString() ?? "Not Provided";
-      studentEmail = data['myemail']?.toString() ?? "Not Provided";
+      studentEmail = semail ?? "Not Provided";
       profileUrl = data['profile_pic'];
 
       // Also update your controllers if you still have them
