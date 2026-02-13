@@ -45,6 +45,9 @@ dependencies:
   pdf: ^3.11.3
   pdf_render_plus: ^1.4.16
   image: ^4.5.4
+
+  encrypt: ^5.0.3
+
   # flutter_windowmanager: ^0.2.0+2
   # screen_protector: ^1.4.12
   # flutter_pdfview: ^1.4.3

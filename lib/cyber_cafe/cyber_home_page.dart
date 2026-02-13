@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cpp/browser/browser.dart';
 import 'package:cpp/cyber_cafe/secure_view.dart'; // Ensure this path is correct
 import 'package:cpp/firebase/auth_ui_screen.dart';
+import 'package:cpp/utils/encryption_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -591,49 +593,155 @@ Widget _buildEmailList(String cafe) {
     );
   }
   // --- 2. STUDENT PROFILE PANEL (The New Part) ---
-  Widget _buildStudentProfilePanel() {
-    final info = selectedRequest?['student_info'];
-    if (info == null) return const Center(child: Text("No profile data sent"));
+  // Widget _buildStudentProfilePanel() {
+  //   final info = selectedRequest?['student_info'];
+  //   if (info == null) return const Center(child: Text("No profile data sent"));
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Text("STUDENT DETAILS", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 20),
-        _profileItem(Icons.person, "Name", info['student_name']),
-        _profileItem(Icons.email, "Email", info['myemail']),
-        _profileItem(Icons.cake, "Gender", info['gender']),
-        _profileItem(Icons.cake, "DOB", info['dob']),
-        _profileItem(Icons.school, "Qualification", info['Qualification']),
-        _profileItem(Icons.family_restroom, "Admission Type", info['admission_type']),
-        _profileItem(Icons.cake, "Caste", info['caste']),
-        _profileItem(Icons.cake, "Disability", info['disability']),
-        _profileItem(Icons.family_restroom, "Father", info['father_name']),
-        _profileItem(Icons.family_restroom, "Father Occupation", info['father_occupation']),
-        _profileItem(Icons.family_restroom, "Mother", info['mother_name']),
-        _profileItem(Icons.family_restroom, "Mother Occupation", info['mother_occupation']),
-        _profileItem(Icons.home, "Address", info['address']),
-        _profileItem(Icons.home, "Address 2", info['address2']),
-        _profileItem(Icons.cake, "Stay", info['stay']),
-        // _profileItem(Icons.phone, "Phone", (info['phones'] as List?)?.join(" / ")),
-        _profileItem(Icons.cake, "Parent Phone", info['parent_phone']),
-        _profileItem(Icons.cake, "Self Phone", info['self_phone']),
-        _profileItem(Icons.badge, "Aadhar", info['aadhar']),
-        _profileItem(Icons.calendar_today, "Academic Year", info['current_year']),
-        const Divider(height: 40),
-        const Text("BANK INFO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 15),
-        _profileItem(Icons.account_balance, "Bank", info['bank_details']?['bank_name']),
-        _profileItem(Icons.numbers, "Account", info['bank_details']?['acc_no']),
-        _profileItem(Icons.code, "IFSC", info['bank_details']?['ifsc']),
-        const Divider(height: 40),
-        const Text("USER NOTE", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-        Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: Text(selectedRequest?['note'] ?? "No note provided", style: const TextStyle(fontStyle: FontStyle.italic)),
-        ),
-      ],
+  //   return ListView(
+  //     padding: const EdgeInsets.all(20),
+  //     children: [
+  //       const Text("STUDENT DETAILS", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+  //       const SizedBox(height: 20),
+  //       _profileItem(Icons.person, "Name", info['student_name']),
+  //       _profileItem(Icons.email, "Email", info['myemail']),
+  //       _profileItem(Icons.cake, "Gender", info['gender']),
+  //       _profileItem(Icons.cake, "DOB", info['dob']),
+  //       _profileItem(Icons.school, "Qualification", info['Qualification']),
+  //       _profileItem(Icons.family_restroom, "Admission Type", info['admission_type']),
+  //       _profileItem(Icons.cake, "Caste", info['caste']),
+  //       _profileItem(Icons.cake, "Disability", info['disability']),
+  //       _profileItem(Icons.family_restroom, "Father", info['father_name']),
+  //       _profileItem(Icons.family_restroom, "Father Occupation", info['father_occupation']),
+  //       _profileItem(Icons.family_restroom, "Mother", info['mother_name']),
+  //       _profileItem(Icons.family_restroom, "Mother Occupation", info['mother_occupation']),
+  //       _profileItem(Icons.home, "Address", info['address']),
+  //       _profileItem(Icons.home, "Address 2", info['address2']),
+  //       _profileItem(Icons.cake, "Stay", info['stay']),
+  //       // _profileItem(Icons.phone, "Phone", (info['phones'] as List?)?.join(" / ")),
+  //       _profileItem(Icons.cake, "Parent Phone", info['parent_phone']),
+  //       _profileItem(Icons.cake, "Self Phone", info['self_phone']),
+  //       _profileItem(Icons.badge, "Aadhar", info['aadhar']),
+  //       _profileItem(Icons.calendar_today, "Academic Year", info['current_year']),
+  //       const Divider(height: 40),
+  //       const Text("BANK INFO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+  //       const SizedBox(height: 15),
+  //       _profileItem(Icons.account_balance, "Bank", info['bank_details']?['bank_name']),
+  //       _profileItem(Icons.numbers, "Account", info['bank_details']?['acc_no']),
+  //       _profileItem(Icons.code, "IFSC", info['bank_details']?['ifsc']),
+  //       const Divider(height: 40),
+  //       const Text("USER NOTE", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+  //       Padding(
+  //         padding: const EdgeInsets.only(top: 10),
+  //         child: Text(selectedRequest?['note'] ?? "No note provided", style: const TextStyle(fontStyle: FontStyle.italic)),
+  //       ),
+  //     ],
+  //   );
+  // }
+
+  Widget _buildStudentProfilePanel() {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _getDecryptedProfile(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.orange));
+        }
+
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const Center(child: Text("Could not decrypt student profile"));
+        }
+
+        final info = snapshot.data!;
+
+        return ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text("STUDENT DETAILS (DECRYPTED)", 
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            const SizedBox(height: 20),
+            _profileItem(Icons.person, "Name", info['student_name']),
+            _profileItem(Icons.email, "Email", info['myemail']),
+            _profileItem(Icons.cake, "Gender", info['gender']),
+            _profileItem(Icons.cake, "DOB", info['dob']),
+            _profileItem(Icons.school, "Qualification", info['Qualification']),
+            _profileItem(Icons.family_restroom, "Admission Type", info['admission_type']),
+            _profileItem(Icons.cake, "Caste", info['caste']),
+            _profileItem(Icons.cake, "Disability", info['disability']),
+            _profileItem(Icons.family_restroom, "Father", info['father_name']),
+            _profileItem(Icons.family_restroom, "Father Occupation", info['father_occupation']),
+            _profileItem(Icons.family_restroom, "Mother", info['mother_name']),
+            _profileItem(Icons.family_restroom, "Mother Occupation", info['mother_occupation']),
+            _profileItem(Icons.home, "Address", info['address']),
+            _profileItem(Icons.home, "Address 2", info['address2']),
+            _profileItem(Icons.cake, "Stay", info['stay']),
+            _profileItem(Icons.cake, "Parent Phone", info['parent_phone']),
+            _profileItem(Icons.cake, "Self Phone", info['self_phone']),
+            _profileItem(Icons.badge, "Aadhar", info['aadhar']),
+            _profileItem(Icons.calendar_today, "Academic Year", info['current_year']),
+            const Divider(height: 40),
+            const Text("BANK INFO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 15),
+            _profileItem(Icons.account_balance, "Bank", info['bank_details']?['bank_name']),
+            _profileItem(Icons.numbers, "Account", info['bank_details']?['acc_no']),
+            _profileItem(Icons.code, "IFSC", info['bank_details']?['ifsc']),
+            const Divider(height: 40),
+            const Text("USER NOTE", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(selectedRequest?['note'] ?? "No note provided", style: const TextStyle(fontStyle: FontStyle.italic)),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  Future<Map<String, dynamic>?> _getDecryptedProfile() async {
+    try {
+      // 1. Safely extract IDs from the selected request
+      final String? studentEmail = selectedRequest?['sender_email'];
+      final String? studentUid = selectedRequest?['senderUid'];
+
+      if (studentEmail == null || studentUid == null) {
+        debugPrint("##########🔐 Attempting to decrypt profile for email: $studentEmail, UID: $studentUid");
+      }
+      
+
+      // 2. Fetch the Master Key (Must be on main thread)
+      final keyDoc = await FirebaseFirestore.instance
+          .collection('file_keys')
+          .doc(studentEmail)
+          .collection('keys')
+          .doc('profile_data')
+          .get();
+
+      if (!keyDoc.exists) {
+        debugPrint("❌ Error: No key found at file_keys/$studentEmail/keys/profile_data");
+        return null;
+      }
+      
+      String masterKey = keyDoc.data()!['key'];
+
+      // 3. Fetch the Encrypted Payload
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(studentUid)
+          .get();
+
+      if (!userDoc.exists || !userDoc.data()!.containsKey('secure_payload')) {
+        debugPrint("❌ Error: No encrypted payload found for UID: $studentUid");
+        return null;
+      }
+      
+      String encryptedPayload = userDoc.data()!['secure_payload'];
+
+      // 4. Decrypt and return
+      String decryptedJson = EncryptionService.decryptString(encryptedPayload, masterKey);
+      return jsonDecode(decryptedJson);
+
+    } catch (e) {
+      debugPrint("❌ Decryption Exception: $e");
+      return null;
+    }
   }
 
   
@@ -780,7 +888,7 @@ Widget _buildControlHeader() {
           Expanded(
             child: selectedDocUrl == null
                 ? const Center(child: Text("No document selected"))
-                : SecureViewer(url: selectedDocUrl!, isPdf: isPdf),
+                : SecureViewer(url: selectedDocUrl!, isPdf: isPdf, displayName: getFileName(selectedDocUrl!), studentEmail: selectedRequest?['sender_email'] ?? "")
           ),
         ],
       ),

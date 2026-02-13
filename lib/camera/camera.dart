@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cpp/utils/encryption_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -79,16 +82,59 @@ class CustomScanner {
 }
 
   // --- UPLOAD LOGIC ---
-  static Future<void> _uploadToFirebase(File file, String name) async {
-    final email = FirebaseAuth.instance.currentUser?.email;
-    if (email == null) return;
+  // static Future<void> _uploadToFirebase(File file, String name) async {
+  //   final email = FirebaseAuth.instance.currentUser?.email;
+  //   if (email == null) return;
 
-    final ref = FirebaseStorage.instance
-        .ref("user_data")
-        .child(email)
-        .child("$name.pdf");
+  //   final ref = FirebaseStorage.instance
+  //       .ref("user_data")
+  //       .child(email)
+  //       .child("$name.pdf");
 
-    await ref.putFile(file);
+  //   await ref.putFile(file);
+  // }
+
+  static Future<Map<String, dynamic>> _uploadToFirebase(File file, String name) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {'success': false, 'message': 'Auth failed'};
+
+    try {
+      // 1. Generate a unique key for THIS specific file
+      String fileKey = EncryptionService.generateRandomKey();
+
+      // 2. Read and Encrypt the file bytes
+      Uint8List fileBytes = await file.readAsBytes();
+      Uint8List encryptedBytes = EncryptionService.encryptData(fileBytes, fileKey);
+
+      // 3. Upload Encrypted Bytes to Storage
+      final ref = FirebaseStorage.instance
+          .ref("user_data")
+          .child(user.email!)
+          .child("$name.pdf");
+      
+      await ref.putData(encryptedBytes);
+      String downloadUrl = await ref.getDownloadURL();
+
+      // 4. Save the Key to your Vault (so Cyber Side can open it)
+      await FirebaseFirestore.instance
+          .collection('file_keys')
+          .doc(user.email)
+          .collection('keys')
+          .doc("$name.pdf")
+          .set({
+        'key': fileKey,
+        'name': "$name.pdf",
+        'uploadedAt': FieldValue.serverTimestamp(),
+      });
+
+      return {
+        'success': true, 
+        'message': '$name uploaded and encrypted!',
+        'url': downloadUrl
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
   }
 
   // --- UI DIALOGS ---

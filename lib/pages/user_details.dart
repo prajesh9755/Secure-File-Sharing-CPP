@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:cpp/utils/encryption_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -42,35 +45,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadExistingData();
   }
 
+  // _loadExistingData() async {
+  //   final uid = FirebaseAuth.instance.currentUser!.uid;
+  //   var doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+  //   if (doc.exists) {
+  //     Map data = doc.data() as Map;
+  //     setState(() {
+  //       nameCtrl.text = data['student_name'] ?? "";
+  //       selectedGender = data['gender'];
+  //       dobCtrl.text = data['dob'] ?? "";
+  //       QualificationCtrl.text = data['Qualification'] ?? "";
+  //       selectedaddmission = data['admission_type'];
+  //       selectedStay = data['stay'];
+  //       casteCtrl.text = data['caste'] ?? "";
+  //       disabilityCtrl.text = data['disability'] ?? "";
+  //       fatherCtrl.text = data['father_name'] ?? "";
+  //       fatheroccupationCtrl.text = data['father_occupation'] ?? "";
+  //       motherCtrl.text = data['mother_name'] ?? "";
+  //       motheroccupationCtrl.text = data['mother_occupation'] ?? "";
+  //       addressCtrl.text = data['address'] ?? "";
+  //       address2Ctrl.text = data['address2'] ?? "";
+  //       phone1Ctrl.text = data['parent_phone'] ?? "";
+  //       phone2Ctrl.text = data['self_phone'] ?? "";
+  //       emailCtrl.text = data['myemail'] ?? "";
+  //       aadharCtrl.text = data['aadhar'] ?? "";
+  //       yearCtrl.text = data['current_year'] ?? "";
+  //       bankNameCtrl.text = data['bank_details']?['bank_name'] ?? "";
+  //       accNoCtrl.text = data['bank_details']?['acc_no'] ?? "";
+  //       ifscCtrl.text = data['bank_details']?['ifsc'] ?? "";
+  //     });
+  //   }
+  // }
   _loadExistingData() async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    var doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    if (doc.exists) {
-      Map data = doc.data() as Map;
-      setState(() {
-        nameCtrl.text = data['student_name'] ?? "";
-        selectedGender = data['gender'];
-        dobCtrl.text = data['dob'] ?? "";
-        QualificationCtrl.text = data['Qualification'] ?? "";
-        selectedaddmission = data['admission_type'];
-        selectedStay = data['stay'];
-        casteCtrl.text = data['caste'] ?? "";
-        disabilityCtrl.text = data['disability'] ?? "";
-        fatherCtrl.text = data['father_name'] ?? "";
-        fatheroccupationCtrl.text = data['father_occupation'] ?? "";
-        motherCtrl.text = data['mother_name'] ?? "";
-        motheroccupationCtrl.text = data['mother_occupation'] ?? "";
-        addressCtrl.text = data['address'] ?? "";
-        address2Ctrl.text = data['address2'] ?? "";
-        phone1Ctrl.text = data['parent_phone'] ?? "";
-        phone2Ctrl.text = data['self_phone'] ?? "";
-        emailCtrl.text = data['myemail'] ?? "";
-        aadharCtrl.text = data['aadhar'] ?? "";
-        yearCtrl.text = data['current_year'] ?? "";
-        bankNameCtrl.text = data['bank_details']?['bank_name'] ?? "";
-        accNoCtrl.text = data['bank_details']?['acc_no'] ?? "";
-        ifscCtrl.text = data['bank_details']?['ifsc'] ?? "";
-      });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      // 1. Fetch the master key from the student's vault
+      final keyDoc = await FirebaseFirestore.instance
+          .collection('file_keys')
+          .doc(user.email)
+          .collection('keys')
+          .doc('profile_data')
+          .get();
+
+      if (!keyDoc.exists) return; // No encrypted profile found
+      String masterKey = keyDoc.data()!['key'];
+
+      // 2. Fetch the encrypted payload from the users collection
+      var doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      
+      if (doc.exists && doc.data()!.containsKey('secure_payload')) {
+        String encryptedPayload = doc.data()!['secure_payload'];
+
+        // 3. Decrypt the block back into a JSON string
+        String decryptedJson = EncryptionService.decryptString(encryptedPayload, masterKey);
+
+        // 4. Decode the JSON back into a Map
+        Map<String, dynamic> data = jsonDecode(decryptedJson);
+
+        setState(() {
+          nameCtrl.text = data['student_name'] ?? "";
+          selectedGender = data['gender'];
+          dobCtrl.text = data['dob'] ?? "";
+          QualificationCtrl.text = data['Qualification'] ?? "";
+          selectedaddmission = data['admission_type'];
+          selectedStay = data['stay'];
+          casteCtrl.text = data['caste'] ?? "";
+          disabilityCtrl.text = data['disability'] ?? "";
+          fatherCtrl.text = data['father_name'] ?? "";
+          fatheroccupationCtrl.text = data['father_occupation'] ?? "";
+          motherCtrl.text = data['mother_name'] ?? "";
+          motheroccupationCtrl.text = data['mother_occupation'] ?? "";
+          addressCtrl.text = data['address'] ?? "";
+          address2Ctrl.text = data['address2'] ?? "";
+          phone1Ctrl.text = data['parent_phone'] ?? "";
+          phone2Ctrl.text = data['self_phone'] ?? "";
+          emailCtrl.text = data['myemail'] ?? "";
+          aadharCtrl.text = data['aadhar'] ?? "";
+          yearCtrl.text = data['current_year'] ?? "";
+          bankNameCtrl.text = data['bank_details']?['bank_name'] ?? "";
+          accNoCtrl.text = data['bank_details']?['acc_no'] ?? "";
+          ifscCtrl.text = data['bank_details']?['ifsc'] ?? "";
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading decrypted data: $e");
     }
   }
 
@@ -100,36 +160,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      'student_name': nameCtrl.text,
-      'gender': selectedGender,
-      'dob': dobCtrl.text,
-      'Qualification': QualificationCtrl.text,
-      'admission_type': selectedaddmission,
-      'stay': selectedStay,
-      'caste': casteCtrl.text,
-      'disability': disabilityCtrl.text,
-      'father_name': fatherCtrl.text,
-      'father_occupation': fatheroccupationCtrl.text,
-      'mother_name': motherCtrl.text,
-      'mother_occupation': motheroccupationCtrl.text,
-      'address': addressCtrl.text,
-      'address2': address2Ctrl.text,
-      'parent_phone': phone1Ctrl.text,
-      'self_phone': phone2Ctrl.text,
-      'myemail': emailCtrl.text,
-      'aadhar': aadharCtrl.text,
-      'current_year': yearCtrl.text,
-      'bank_details': {
-        'bank_name': bankNameCtrl.text,
-        'acc_no': accNoCtrl.text,
-        'ifsc': ifscCtrl.text,
-      },
-      'last_updated': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      await _saveEncryptedUserDetails(); 
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile Encrypted & Saved Successfully!")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Encryption Error: $e")));
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile Saved Successfully!")));
+    // final uid = FirebaseAuth.instance.currentUser!.uid;
+    // await FirebaseFirestore.instance.collection('users').doc(uid).set({
+    //   'student_name': nameCtrl.text,
+    //   'gender': selectedGender,
+    //   'dob': dobCtrl.text,
+    //   'Qualification': QualificationCtrl.text,
+    //   'admission_type': selectedaddmission,
+    //   'stay': selectedStay,
+    //   'caste': casteCtrl.text,
+    //   'disability': disabilityCtrl.text,
+    //   'father_name': fatherCtrl.text,
+    //   'father_occupation': fatheroccupationCtrl.text,
+    //   'mother_name': motherCtrl.text,
+    //   'mother_occupation': motheroccupationCtrl.text,
+    //   'address': addressCtrl.text,
+    //   'address2': address2Ctrl.text,
+    //   'parent_phone': phone1Ctrl.text,
+    //   'self_phone': phone2Ctrl.text,
+    //   'myemail': emailCtrl.text,
+    //   'aadhar': aadharCtrl.text,
+    //   'current_year': yearCtrl.text,
+    //   'bank_details': {
+    //     'bank_name': bankNameCtrl.text,
+    //     'acc_no': accNoCtrl.text,
+    //     'ifsc': ifscCtrl.text,
+    //   },
+    //   'last_updated': FieldValue.serverTimestamp(),
+    // }, SetOptions(merge: true));
+
+    // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile Saved Successfully!")));
   }
 
   @override
@@ -276,6 +343,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+    Future<void> _saveEncryptedUserDetails() async {
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final userEmail = FirebaseAuth.instance.currentUser!.email;
+
+      Map<String, dynamic> userData = {
+        'student_name': nameCtrl.text,
+        'gender': selectedGender,
+        'dob': dobCtrl.text,
+        'Qualification': QualificationCtrl.text,
+        'admission_type': selectedaddmission,
+        'stay': selectedStay,
+        'caste': casteCtrl.text,
+        'disability': disabilityCtrl.text,
+        'father_name': fatherCtrl.text,
+        'father_occupation': fatheroccupationCtrl.text,
+        'mother_name': motherCtrl.text,
+        'mother_occupation': motheroccupationCtrl.text,
+        'address': addressCtrl.text,
+        'address2': address2Ctrl.text,
+        'parent_phone': phone1Ctrl.text,
+        'self_phone': phone2Ctrl.text,
+        'myemail': emailCtrl.text,
+        'aadhar': aadharCtrl.text,
+        'current_year': yearCtrl.text,
+        'bank_details': {
+          'bank_name': bankNameCtrl.text,
+          'acc_no': accNoCtrl.text,
+          'ifsc': ifscCtrl.text,
+        },
+      };
+
+      try {
+        String jsonString = jsonEncode(userData);
+        String profileKey = EncryptionService.generateRandomKey(); 
+        String encryptedData = EncryptionService.encryptString(jsonString, profileKey);
+
+        // 5. Store in 'users' with unencrypted identification fields
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'secure_payload': encryptedData,
+          'student_name': nameCtrl.text, // For searching/displaying in lists
+          'search_email': userEmail,    // For identification
+          'last_updated': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        // 6. Store key in vault
+        await FirebaseFirestore.instance
+            .collection('file_keys')
+            .doc(userEmail)
+            .collection('keys')
+            .doc('profile_data')
+            .set({
+          'key': profileKey,
+          'ownerEmail': userEmail,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile Encrypted & Saved!")));
+      } catch (e) {
+        debugPrint("Encryption Error: $e");
+      }
+    }
 
   // UI HELPER: Section Card
   Widget _buildSectionCard({required String title, required IconData icon, required Color iconColor, required List<Widget> children}) {

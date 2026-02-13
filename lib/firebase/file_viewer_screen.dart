@@ -1,5 +1,9 @@
 // file_viewer_screen.dart
 
+import 'dart:typed_data';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cpp/utils/encryption_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -55,34 +59,123 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
     }
   }
 
+  // Future<void> _downloadAndOpen(Reference fileRef) async {
+  //   final fileName = fileRef.name;
+  //   final tempDir = await getTemporaryDirectory();
+  //   final localFile = File(p.join(tempDir.path, fileName));
+    
+  //   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading to view...')));
+
+  //   if (!await localFile.exists()) {
+  //     try {
+  //       await fileRef.writeToFile(localFile);
+  //     } on FirebaseException catch (e) {
+  //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: ${e.code}')));
+  //       return;
+  //     }
+  //   }
+  //   final result = await OpenFile.open(localFile.path);
+  //   if (result.type != ResultType.done) {
+  //     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open: ${result.message}')));
+  //   }
+  // }
+
   Future<void> _downloadAndOpen(Reference fileRef) async {
     final fileName = fileRef.name;
+    final userEmail = FirebaseAuth.instance.currentUser?.email; // Get current user email
+    
+    if (userEmail == null) return;
+
     final tempDir = await getTemporaryDirectory();
     final localFile = File(p.join(tempDir.path, fileName));
     
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading to view...')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fetching key and downloading...')));
 
-    if (!await localFile.exists()) {
-      try {
-        await fileRef.writeToFile(localFile);
-      } on FirebaseException catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: ${e.code}')));
-        return;
+    try {
+      // 1. GET THE KEY from the new nested structure
+      // Path: file_keys / {email} / {filename} / info
+      final keyDoc = await FirebaseFirestore.instance
+        .collection('file_keys')
+        .doc(userEmail)
+        .collection('keys')
+        .doc(fileName) // Direct access to the file document
+        .get();
+
+      if (!keyDoc.exists) {
+        throw "Decryption key not found in the vault!";
       }
-    }
-    final result = await OpenFile.open(localFile.path);
-    if (result.type != ResultType.done) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open: ${result.message}')));
+      
+      final fileKey = keyDoc.data()!['key'];
+
+      // 2. DOWNLOAD THE ENCRYPTED DATA
+      // We use getData() to keep it in memory (RAM) for decryption
+      final Uint8List? encryptedBytes = await fileRef.getData();
+      if (encryptedBytes == null) throw "Failed to download file bytes";
+
+      // 3. DECRYPT THE DATA
+      final Uint8List decryptedPdf = EncryptionService.decryptData(encryptedBytes, fileKey);
+
+      // 4. SAVE DECRYPTED PDF TO TEMP FILE
+      await localFile.writeAsBytes(decryptedPdf, flush: true);
+
+      // 5. OPEN THE FILE
+      final result = await OpenFile.open(localFile.path);
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open: ${result.message}')),
+        );
+      }
+    } on FirebaseException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Firebase Error: ${e.code}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 
+  // Future<void> _deleteSelectedFiles() async {
+  //   bool confirm = await showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+  //       title: Text("Delete ${_selectedFiles.length} items?"),
+  //       content: const Text("This action cannot be undone. Are you sure?"),
+  //       actions: [
+  //         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
+  //         ElevatedButton(
+  //           onPressed: () => Navigator.pop(context, true),
+  //           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+  //           child: const Text("DELETE", style: TextStyle(color: Colors.white)),
+  //         ),
+  //       ],
+  //     ),
+  //   ) ?? false;
+
+  //   if (confirm) {
+  //     setState(() => _isLoadingList = true);
+  //     try {
+  //       for (var ref in _selectedFiles) { await ref.delete(); }
+  //       _selectedFiles.clear();
+  //       _loadFiles();
+  //     } finally {
+  //       setState(() => _isLoadingList = false);
+  //     }
+  //   }
+  // }
+
   Future<void> _deleteSelectedFiles() async {
+    final userEmail = FirebaseAuth.instance.currentUser?.email;
+    if (userEmail == null) return;
+
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text("Delete ${_selectedFiles.length} items?"),
-        content: const Text("This action cannot be undone. Are you sure?"),
+        content: const Text("This will delete the files and their security keys."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
           ElevatedButton(
@@ -97,9 +190,25 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
     if (confirm) {
       setState(() => _isLoadingList = true);
       try {
-        for (var ref in _selectedFiles) { await ref.delete(); }
+        for (var ref in _selectedFiles) { 
+          // 1. Delete the scrambled file from Storage
+          await ref.delete(); 
+          
+          // 2. Delete the specific key from your new flat structure
+          // Path: file_keys -> {email} -> keys -> {filename}
+          await FirebaseFirestore.instance
+              .collection('file_keys')
+              .doc(userEmail)
+              .collection('keys')
+              .doc(ref.name)
+              .delete();
+        }
+        
         _selectedFiles.clear();
-        _loadFiles();
+        _loadFiles(); // Refresh the list
+        
+      } catch (e) {
+        debugPrint("Delete Error: $e");
       } finally {
         setState(() => _isLoadingList = false);
       }
@@ -279,5 +388,45 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _downloadAndDecrypt(Reference fileRef) async {
+    try {
+      setState(() => _isLoadingList = true);
+
+      // 1. GET THE KEY FROM FIRESTORE
+      final userEmail = FirebaseAuth.instance.currentUser?.email;
+      final keyDoc = await FirebaseFirestore.instance
+          .collection('file_keys')
+          .doc('${userEmail}_${fileRef.name}')
+          .get();
+
+      if (!keyDoc.exists) {
+        throw "Decryption key not found!";
+      }
+      String fileKey = keyDoc.data()!['key'];
+
+      // 2. DOWNLOAD SCRAMBLED BYTES FROM STORAGE
+      final Uint8List? encryptedBytes = await fileRef.getData();
+      if (encryptedBytes == null) throw "Download failed";
+
+      // 3. DECRYPT THE BYTES
+      Uint8List decryptedPdf = EncryptionService.decryptData(encryptedBytes, fileKey);
+
+      // 4. SAVE TO TEMP & OPEN
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${fileRef.name}');
+      await tempFile.writeAsBytes(decryptedPdf);
+
+      // Use your existing package to open the file (e.g., open_file)
+      await OpenFile.open(tempFile.path);
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    } finally {
+      setState(() => _isLoadingList = false);
+    }
   }
 }

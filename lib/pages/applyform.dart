@@ -65,10 +65,12 @@ class _ApplyFormPageState extends State<ApplyFormPage> {
         'isPdf': url.toLowerCase().contains('.pdf') || url.contains('type=pdf'),
       };
     }).toList();
-
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
     // 4. Submit to Firestore
     await FirebaseFirestore.instance.collection('cyber_requests').add({
       'sender_email': FirebaseAuth.instance.currentUser!.email,
+      'senderUid': user.uid,
       'scholarship_type': selectedScholarship,
       'note': _noteController.text.trim(),
       'selected_cafe': selectedCafe,
@@ -245,42 +247,42 @@ class _ApplyFormPageState extends State<ApplyFormPage> {
                     ],
                   ),
                   child: ElevatedButton(
-  style: ElevatedButton.styleFrom(
-    backgroundColor: const Color(0xFF1A2A3A),
-    minimumSize: const Size(double.infinity, 50),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-  ),
-  onPressed: () async {
-    // 1. Show a loading spinner
-    _showLoadingDialog(context);
-    _finalSubmit();
-    // try {
-    //   final userEmail = FirebaseAuth.instance.currentUser?.email;
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A2A3A),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    onPressed: () async {
+                      // 1. Show a loading spinner
+                      _showLoadingDialog(context);
+                      _finalSubmit();
+                      // try {
+                      //   final userEmail = FirebaseAuth.instance.currentUser?.email;
 
-    //   // 2. THE FIREBASE CODE GOES HERE
-    //   await FirebaseFirestore.instance.collection('cyber_requests').add({
-    //     'sender_email': userEmail,
-    //     'scholarship_type': _scholarshipController.text, // Example field
-    //     'selected_cafe': _selectedCafe,                // Example field
-    //     'attached_files': selectedDocPaths,            // YOUR SELECTED FILES
-    //     'status': 'Pending',
-    //     'timestamp': FieldValue.serverTimestamp(),
-    //   });
+                      //   // 2. THE FIREBASE CODE GOES HERE
+                      //   await FirebaseFirestore.instance.collection('cyber_requests').add({
+                      //     'sender_email': userEmail,
+                      //     'scholarship_type': _scholarshipController.text, // Example field
+                      //     'selected_cafe': _selectedCafe,                // Example field
+                      //     'attached_files': selectedDocPaths,            // YOUR SELECTED FILES
+                      //     'status': 'Pending',
+                      //     'timestamp': FieldValue.serverTimestamp(),
+                      //   });
 
-    //   // 3. Success!
-      Navigator.pop(context); // Close loading dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Request submitted successfully!")),
-      );
-      Navigator.pop(context); // Go back to Home Page
-      
-    // } catch (e) {
-    //   Navigator.pop(context); // Close loading dialog
-    //   print("Error submitting: $e");
-    // }
-  },
-  child: const Text("SUBMIT REQUEST", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-),
+                      //   // 3. Success!
+                        Navigator.pop(context); // Close loading dialog
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Request submitted successfully!")),
+                        );
+                        Navigator.pop(context); // Go back to Home Page
+                        
+                      // } catch (e) {
+                      //   Navigator.pop(context); // Close loading dialog
+                      //   print("Error submitting: $e");
+                      // }
+                    },
+                    child: const Text("SUBMIT REQUEST", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
                 ),
               ],
             ),
