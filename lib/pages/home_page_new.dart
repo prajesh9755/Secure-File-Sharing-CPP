@@ -1,6 +1,8 @@
 import 'package:cpp/camera/camera.dart';
 import 'package:cpp/firebase/file_viewer_screen.dart';
 import 'package:cpp/pages/form_history.dart';
+import 'package:cpp/pages/gallery_to_pdf_screen.dart';
+import 'package:cpp/pages/help_page.dart';
 import 'package:cpp/pages/profilepage.dart';
 import 'package:cpp/pages/upload_page.dart';
 import 'package:cpp/pages/user_details.dart';
@@ -26,6 +28,90 @@ void _onItemTapped(int index) {
   });
 }
 
+// --- UPLOAD OPTIONS DIALOG ---
+void _showUploadDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text(
+        'Choose Upload Option',
+        style: TextStyle(
+          color: Color(0xFF1A2A3A),
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Select how you want to upload your files:',
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 20),
+          
+          // Option 1: Upload IMG or PDF
+          Container(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const UploadPage()),
+                );
+              },
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload IMG or PDF'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CA1AF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Option 2: IMG to PDF
+          Container(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GalleryToPdfScreen()),
+                );
+              },
+              icon: const Icon(Icons.photo_library),
+              label: const Text('IMG to PDF'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2C3E50),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: Color(0xFF1A2A3A)),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
 Widget build(BuildContext context) {
@@ -180,12 +266,6 @@ Widget build(BuildContext context) {
                       _buildActionBtn(context, Icons.assignment, 'Apply Form', () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApplyFormPage()))),
                       const SizedBox(width: 12),
                       _buildActionBtn(context, Icons.add_a_photo, 'Scan Photo', () => CustomScanner.startScan(context)),
-                      // _serviceButton(context, Icons.history, 'Apply Form', () {
-                      //   Navigator.push(context, MaterialPageRoute(builder: (context) => const ApplyFormPage()));
-                      // }),
-                      // _serviceButton(context, Icons.history, 'Scan & Upload', () {
-                      //   Navigator.push(context, MaterialPageRoute(builder: (context) => CustomScanner.startScan(context)));
-                      // }),
                     ],
                   ),
 
@@ -205,7 +285,7 @@ Widget build(BuildContext context) {
                     mainAxisSpacing: 8,
                     children: [
                       _serviceButton(context, Icons.upload_file, 'Upload', () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const UploadPage()));
+                        _showUploadDialog(context);
                       }),
                       _serviceButton(context, Icons.fact_check, 'Submitted', () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const FileViewerScreen(folderName: 'applications')));
@@ -219,7 +299,9 @@ Widget build(BuildContext context) {
                       _serviceButton(context, Icons.payment, 'Payment', () {}),
                       _serviceButton(context, Icons.description, 'Required Docs', () {}),
                       _serviceButton(context, Icons.calendar_month, 'Deadlines', () {}),
-                      _serviceButton(context, Icons.help_center, 'Help', () {}),
+                      _serviceButton(context, Icons.help_center, 'Help', () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpPage()));
+                      }),
                       _serviceButton(context, Icons.history, 'History', () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryPage()));
                       }),

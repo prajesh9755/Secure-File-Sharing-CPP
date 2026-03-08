@@ -4,6 +4,7 @@ import 'package:cpp/camera/camera.dart';
 import 'package:cpp/firebase/file_viewer_screen.dart';
 import 'package:cpp/pages/form_history.dart';
 import 'package:cpp/pages/user_details.dart';
+import 'package:cpp/pdf_from_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart';
@@ -242,6 +243,25 @@ SingleChildScrollView(
             ),
           ),
           onPressed: () => CustomScanner.startScan(context),
+        ),
+      ),
+
+      const SizedBox(width: 10),
+
+      SizedBox(
+        width: 160,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.photo_library),
+          label: const Text('Gallery to PDF'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 30),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onPressed: () => ImageToPdfConverter.startImageSelection(context),
         ),
       ),
     ],
