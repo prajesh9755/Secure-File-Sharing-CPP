@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 // NOTE: You MUST generate this file by running 'flutterfire configure'
 import 'firebase_options.dart'; 
 // test git
@@ -19,6 +20,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ✅ Add Firebase App Check
+  // aw6
   
   runApp(const MyApp());
 }

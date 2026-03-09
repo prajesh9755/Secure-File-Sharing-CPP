@@ -61,6 +61,7 @@ dependencies:
   flutter_inappwebview: ^6.1.5
   cunning_document_scanner: ^1.4.0
   image_picker: ^1.2.1
+  firebase_app_check: ^0.4.1+5
   # flutter_launcher_icons: ^0.14.4
   # amazon_s3_cognito: ^0.6.0
   # amazon_cognito_identity_dart_2: ^3.0.1
